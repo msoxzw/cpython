@@ -7,20 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-    - 'main'
-    - '3.11'
-    - '3.10'
-    - '3.9'
-    - '3.8'
-    - '3.7'
-  pull_request:
-    branches:
-    - 'main'
-    - '3.11'
-    - '3.10'
-    - '3.9'
-    - '3.8'
-    - '3.7'
+    - '*'
 
 permissions:
   contents: read
@@ -138,15 +125,33 @@ jobs:
        IncludeUwp: 'true'
     steps:
     - uses: actions/checkout@v3
+      with:
+        ref: main
     - name: Register MSVC problem matcher
       run: echo "::add-matcher::.github/problem-matchers/msvc.json"
     - name: Build CPython
-      run: .\PCbuild\build.bat -e -d -p x64
+      run: .\PCbuild\build.bat -e -p x64
+      timeout-minutes: 30
+    - name: Benchmark
+      run: |
+        .\python.bat -m timeit -s "a=bytearray(4096);b=b'x'*1024;" "a[:1024]=b"
+        .\python.bat -m timeit -s "a=bytearray(4096);b=memoryview(b'x'*1024);" "a[:1024]=b"
+        .\python.bat -m timeit -s "a=bytearray(4096);b=bytearray(b'x'*1024);" "a[:1024]=b"
+    - uses: actions/checkout@v3
+      with:
+        ref: bytes
+    - name: Build CPython
+      run: .\PCbuild\build.bat -e -p x64
       timeout-minutes: 30
     - name: Display build info
       run: .\python.bat -m test.pythoninfo
     - name: Tests
-      run: .\PCbuild\rt.bat -p x64 -d -q -uall -u-cpu -rwW --slowest --timeout=1200 -j0
+      run: .\PCbuild\rt.bat -p x64 -q -uall -u-cpu -rwW --slowest --timeout=1200 -j0
+    - name: Benchmark
+      run: |
+        .\python.bat -m timeit -s "a=bytearray(4096);b=b'x'*1024;" "a[:1024]=b"
+        .\python.bat -m timeit -s "a=bytearray(4096);b=memoryview(b'x'*1024);" "a[:1024]=b"
+        .\python.bat -m timeit -s "a=bytearray(4096);b=bytearray(b'x'*1024);" "a[:1024]=b"
 
   build_macos:
     name: 'macOS'
